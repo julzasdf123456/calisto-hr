@@ -18,8 +18,8 @@ import java.util.List;
 public class AttendanceDao {
     public static boolean insert(Connection con, Attendance attendance) {
         try {
-            PreparedStatement ps = con.prepareStatement("INSERT INTO AttendanceData(id, BiometricUserId, EmployeeId, UserId, Timestamp, State, UID, created_at, updated_at, DeviceIp) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            PreparedStatement ps = con.prepareStatement("INSERT INTO AttendanceData(id, BiometricUserId, EmployeeId, UserId, Timestamp, State, UID, created_at, updated_at, DeviceIp, Type) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             ps.setString(1, attendance.getId());
             ps.setString(2, attendance.getBiometricUserId());
             ps.setString(3, attendance.getEmployeeId());
@@ -30,6 +30,7 @@ public class AttendanceDao {
             ps.setString(8, attendance.getCreated_at());
             ps.setString(9, attendance.getUpdated_at());
             ps.setString(10, attendance.getDeviceIp());
+            ps.setString(11, attendance.getType());
             ps.executeUpdate();                
             ps.close();
             return true;
@@ -56,7 +57,8 @@ public class AttendanceDao {
                         rs.getString("UID"),
                         rs.getString("created_at"),
                         rs.getString("updated_at"),
-                        rs.getString("DeviceIp"));
+                        rs.getString("DeviceIp"),
+                        rs.getString("Type"));
             }
             
             rs.close();
@@ -71,7 +73,7 @@ public class AttendanceDao {
     public static List<Attendance> getAll(Connection con) {
         try {
             List<Attendance> attendances = new ArrayList<>();
-            PreparedStatement ps = con.prepareStatement("SELECT a.*, b.Name FROM AttendanceData a LEFT JOIN BiometricUsers b ON a.BiometricUserId=b.UserId ORDER BY Timestamp");
+            PreparedStatement ps = con.prepareStatement("SELECT TOP 3000 a.*, b.Name FROM AttendanceData a LEFT JOIN BiometricUsers b ON a.BiometricUserId=b.UserId WHERE AbsentPermission IS NULL ORDER BY Timestamp DESC");
             ResultSet rs = ps.executeQuery();
             
             while (rs.next()) {
@@ -84,7 +86,8 @@ public class AttendanceDao {
                         rs.getString("UID"),
                         rs.getString("created_at"),
                         rs.getString("updated_at"),
-                        rs.getString("DeviceIp")));
+                        rs.getString("DeviceIp"),
+                        rs.getString("Type")));
             }
             
             rs.close();

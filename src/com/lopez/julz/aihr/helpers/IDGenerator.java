@@ -26,9 +26,101 @@ public class IDGenerator {
         }
     }
     
+    public static Date parseTimestamp(String time) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+            return sdf.parse(time);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public static String addMinutes(String time, int minutes) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date d = sdf.parse(time);
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(d);
+            cal.add(Calendar.MINUTE, minutes);
+            return sdf.format(cal.getTime());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public static String validateSqlTime(String time) {
+        try {
+            String splt[] = time.split(".");
+//            if (splt[0] != null) {
+//                return splt[0];
+//            } else {
+//                return null;
+//            }
+            return splt.length + "";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public static String parseDate(String time) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+            return sdf.format(sdf.parse(time));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public static String parseTime(String time) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+
+            return sdf.format(sdf.parse(time));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
     public static String getSqlDate() {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+            return sdf.format(new Date());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    public static String getDayDate() {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("dd");
+
+            return sdf.format(new Date());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    public static String getMonth() {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM");
+
+            return sdf.format(new Date());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    public static String getYear() {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy");
 
             return sdf.format(new Date());
         } catch (Exception e) {

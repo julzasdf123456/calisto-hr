@@ -10,15 +10,25 @@ import com.lopez.julz.aihr.dao.AttendanceDao;
 import com.lopez.julz.aihr.dao.BiometricUsers;
 import com.lopez.julz.aihr.dao.BiometricUsersDao;
 import com.lopez.julz.aihr.dao.DatabaseConnection;
+import com.lopez.julz.aihr.dao.Employees;
+import com.lopez.julz.aihr.dao.EmployeesDao;
+import com.lopez.julz.aihr.dao.LeaveBalanceDetails;
+import com.lopez.julz.aihr.dao.LeaveBalanceDetailsDao;
+import com.lopez.julz.aihr.dao.LeaveBalances;
+import com.lopez.julz.aihr.dao.LeaveBalancesDao;
+import com.lopez.julz.aihr.dao.PayrollSchedules;
+import com.lopez.julz.aihr.dao.PayrollSchedulesDao;
 import com.lopez.julz.aihr.helpers.IDGenerator;
 import com.lopez.julz.aihr.helpers.Notifiers;
 import com.lopez.julz.aihr.pojos.AttendanceResponse;
 import com.lopez.julz.aihr.pojos.BiometricUsersResponse;
+import java.awt.Color;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Timer;
+import java.util.TimerTask;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.DefaultCaret;
@@ -48,7 +58,7 @@ public class Calisto extends javax.swing.JFrame {
     boolean attendanceSync = false;
     public List<Attendance> attendances;
     public DefaultTableModel attendanceModel;
-    private String[] attendanceCol = {"Name", "Biometrics", "Timestamp"};
+    private String[] attendanceCol = {"Name", "UID", "Bio. IP", "Timestamp", "Type"};
     
     private List<String> biometricIps;
     public int ipIndex, ipsize;
@@ -56,8 +66,11 @@ public class Calisto extends javax.swing.JFrame {
     public Calisto() {
         initComponents();
         setLocationRelativeTo(this);
-        DefaultCaret caret = (DefaultCaret)attendanceLogs.getCaret();
-        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+        DefaultCaret caretAttendanceLogs = (DefaultCaret)attendanceLogs.getCaret();
+        caretAttendanceLogs.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+        
+        DefaultCaret caretLeaveCreditLogs = (DefaultCaret)leaveCreditLogs.getCaret();
+        caretLeaveCreditLogs.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
         
         db = new DatabaseConnection();
         connection = db.getDbConnectionFromDatabase(serverIp.getText(), "hrs", "sa", "BIR159!@#po");
@@ -68,6 +81,9 @@ public class Calisto extends javax.swing.JFrame {
         usersList = new ArrayList<>();
         attendances = new ArrayList<>();
         biometricIps = new ArrayList<>();
+        
+        leaveCreditMonthlyWatcher();
+        leaveCreditYearlyWatcher();
         
         fetchBiometricUsers("192.168.10.39");
     }
@@ -105,6 +121,9 @@ public class Calisto extends javax.swing.JFrame {
         attendanceTable = new javax.swing.JTable();
         jScrollPane3 = new javax.swing.JScrollPane();
         attendanceLogs = new javax.swing.JTextArea();
+        attendanceLabel1 = new javax.swing.JLabel();
+        jScrollPane5 = new javax.swing.JScrollPane();
+        leaveCreditLogs = new javax.swing.JTextArea();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -126,7 +145,7 @@ public class Calisto extends javax.swing.JFrame {
         jLabel5.setText("Biometric IPS (Separate by Comma)");
 
         bioIps.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
-        bioIps.setText("192.168.10.39, 192.168.11.250, 192.168.31.222");
+        bioIps.setText("192.168.10.39, 192.168.11.50");
 
         attendanceSyncButton.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
         attendanceSyncButton.setText("Start Sync");
@@ -261,6 +280,14 @@ public class Calisto extends javax.swing.JFrame {
         attendanceLogs.setRows(5);
         jScrollPane3.setViewportView(attendanceLogs);
 
+        attendanceLabel1.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        attendanceLabel1.setText("Leave Credit Assistant Logs (runs every hour)");
+
+        leaveCreditLogs.setColumns(20);
+        leaveCreditLogs.setLineWrap(true);
+        leaveCreditLogs.setRows(5);
+        jScrollPane5.setViewportView(leaveCreditLogs);
+
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
         jPanel4Layout.setHorizontalGroup(
@@ -268,16 +295,17 @@ public class Calisto extends javax.swing.JFrame {
             .addGroup(jPanel4Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 526, Short.MAX_VALUE)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 555, Short.MAX_VALUE)
+                    .addComponent(jScrollPane3)
                     .addGroup(jPanel4Layout.createSequentialGroup()
                         .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jScrollPane3)
-                            .addGroup(jPanel4Layout.createSequentialGroup()
-                                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(attendanceLabel)
-                                    .addComponent(attendanceSyncLabel))
-                                .addGap(0, 0, Short.MAX_VALUE)))
-                        .addContainerGap())))
+                            .addComponent(attendanceLabel)
+                            .addComponent(attendanceSyncLabel))
+                        .addGap(0, 0, Short.MAX_VALUE)))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(attendanceLabel1)
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 352, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -287,7 +315,11 @@ public class Calisto extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(attendanceSyncLabel)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 537, Short.MAX_VALUE)
+                .addComponent(attendanceLabel1)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jScrollPane5)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 516, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -339,9 +371,11 @@ public class Calisto extends javax.swing.JFrame {
     private void attendanceSyncButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_attendanceSyncButtonActionPerformed
         if (attendanceSync) {
             attendanceSync = false;
+            attendanceSyncButton.setBackground(Color.RED);
             attendanceSyncButton.setText("Start Sync");
         } else {
             attendanceSync = true;
+            attendanceSyncButton.setBackground(Color.decode("#00988b"));
             attendanceSyncButton.setText("Pause");
             
             biometricIps.clear();
@@ -400,6 +434,7 @@ public class Calisto extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel attendanceLabel;
+    private javax.swing.JLabel attendanceLabel1;
     private javax.swing.JTextArea attendanceLogs;
     private javax.swing.JButton attendanceSyncButton;
     private javax.swing.JLabel attendanceSyncLabel;
@@ -418,7 +453,9 @@ public class Calisto extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JSplitPane jSplitPane1;
+    private javax.swing.JTextArea leaveCreditLogs;
     private javax.swing.JTextField serverIp;
     private javax.swing.JTextArea usersLogs;
     private javax.swing.JLabel usersSyncLabel;
@@ -515,6 +552,43 @@ public class Calisto extends javax.swing.JFrame {
                         int size = att.size();
                         
                         for (int i=0; i<size; i++) {
+                            String type = "";
+                            String uid = att.get(i).getId();
+                            PayrollSchedules shift = PayrollSchedulesDao.getOnByEmployeeBioId(connection, uid);
+                            
+                            Date bioTimestamp = IDGenerator.parseTimestamp(att.get(i).getTimestamp());
+                            String bioDate = IDGenerator.parseDate(att.get(i).getTimestamp());
+                            if (shift != null) {
+                                if (shift.getStartTime() != null && shift.getEndTime() != null) {
+                                    Date startTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getStartTime()), 120));
+                                    Date breakStart = IDGenerator.parseTimestamp(bioDate + " " + IDGenerator.parseTime(shift.getBreakStart()));
+                                    Date breakMid = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getBreakStart()), 30));
+                                    Date breakEnd = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getBreakEnd()), 120));
+                                    if (bioTimestamp.before(startTime)) {
+                                        type = "AM IN";
+                                    } else if (bioTimestamp.after(breakStart) && bioTimestamp.before(breakMid)) {
+                                        type = "AM OUT";
+                                    } else if (bioTimestamp.after(breakMid) && bioTimestamp.before(breakEnd)) {
+                                        type = "PM IN";
+                                    } else if (bioTimestamp.after(breakEnd)) {
+                                        type = "PM OUT";
+                                    } else {
+                                        type = "AMBIGUOS";
+                                    }
+                                } else {
+                                    Date startTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getStartTime()), 120));
+                                    Date endTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getEndTime()), -120));
+                                    if (bioTimestamp.before(startTime)) {
+                                        type = "AM IN";
+                                    } else if (bioTimestamp.after(endTime)) {
+                                        type = "PM OUT";
+                                    } else {
+                                        type = "AMBIGUOS";
+                                    }
+                                } 
+                            } else {
+                                type = "AMBIGUOS";
+                            }
                             Attendance attendance = new Attendance(
                                     IDGenerator.generateIDandRandString(),
                                     att.get(i).getId(),
@@ -525,7 +599,8 @@ public class Calisto extends javax.swing.JFrame {
                                     att.get(i).getUid(),
                                     IDGenerator.getCurrentTimestamp(),
                                     IDGenerator.getCurrentTimestamp(),
-                                    ipOfBiometrics
+                                    ipOfBiometrics,
+                                    type
                             );
                             
                             if (AttendanceDao.getOneByBioUserIdAndTimestamp(connection, attendance.getBiometricUserId(), attendance.getTimestamp()) != null) {
@@ -595,7 +670,9 @@ public class Calisto extends javax.swing.JFrame {
             for (int i=0; i<attendanceSize; i++) {
                 data[i][0] = attendances.get(i).getEmployeeId();
                 data[i][1] = attendances.get(i).getBiometricUserId();
-                data[i][2] = attendances.get(i).getTimestamp();
+                data[i][2] = attendances.get(i).getDeviceIp();
+                data[i][3] = attendances.get(i).getTimestamp();
+                data[i][4] = attendances.get(i).getType();
             }
             
             attendanceModel = new DefaultTableModel(data, attendanceCol);
@@ -605,6 +682,257 @@ public class Calisto extends javax.swing.JFrame {
         } catch (Exception e) {
             e.printStackTrace();
             Notifiers.showMessage("Error fetching all attendances", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void leaveCreditMonthlyWatcher() {
+        try {
+            Timer t = new Timer();  
+            TimerTask tt = new TimerTask() {  
+                @Override  
+                public void run() {  
+                   String dayDate = IDGenerator.getDayDate();
+            
+                    if (dayDate.equals("01")) {
+                        System.out.println("Leave credit processing started: " + dayDate);
+                        leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Leave Credit Assistant starting\n");
+                        leaveCreditMonthlyAssistant();
+                    } else {
+                        System.out.println("Day skipped for leave processing: " + dayDate);
+                        leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Day skipped for leave processing (" + dayDate + ")\n");
+                    } 
+                };  
+            };  
+            t.scheduleAtFixedRate(tt, new Date(), 3600000); 
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error updating leave credits", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void leaveCreditYearlyWatcher() {
+        try {
+            Timer t = new Timer();  
+            TimerTask tt = new TimerTask() {  
+                @Override  
+                public void run() {  
+                   leaveCreditYearlyAssistant();
+                };  
+            };  
+            t.scheduleAtFixedRate(tt, new Date(), 3650000); 
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error updating leave credits yearly", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void leaveCreditMonthlyAssistant() {
+        try {
+            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess leave credits\n");
+            List<Employees> employees = EmployeesDao.getAll(connection);
+            int size = employees.size();
+            
+            String month = IDGenerator.getMonth();
+            String year = IDGenerator.getYear();
+            
+            for (int i=0; i<size; i++) {
+                Employees employee = employees.get(i);
+                LeaveBalances leaveBalance = LeaveBalancesDao.getOneByEmployeeId(connection, employee.getId());
+                
+                if (leaveBalance != null) {                    
+                    /**
+                     * ======================================
+                     * UPDATE MONTHLY
+                     * ======================================
+                     */
+                    if (leaveBalance.getMonth().equals(month)) {
+                        // IF LEAVE FOR THIS MONTH EXISTS, DO NOT UPDATE BALANCE
+                    } else {
+                        double vacation = Double.valueOf(leaveBalance.getVacation()) + 1.25;
+                        double sick = Double.valueOf(leaveBalance.getSick()) + 1.25;
+                        leaveBalance.setVacation(vacation + "");
+                        leaveBalance.setSick(sick + "");
+                        leaveBalance.setMonth(month);
+                        LeaveBalancesDao.update(connection, leaveBalance);
+
+                        // ADD DETAILS FOR VACATION
+                        LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "1.25", 
+                                "Added 1.25 days to Vacation Leave credit balance for " + month + " " + year + " (current total: " + leaveBalance.getVacation() + ")", 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+
+                        // ADD DETAILS FOR SICK
+                        details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "1.25", 
+                                "Added 1.25 days to Sick Leave credit balance for " + month + " " + year + " (current total: " + leaveBalance.getSick()+ ")", 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+                    }
+                } else {
+                    // ADD NEW
+                    LeaveBalances newBalance = new LeaveBalances(IDGenerator.generateIDandRandString(), 
+                            employee.getId(), 
+                            "0", 
+                            "0", 
+                            "3", 
+                            "105", 
+                            "120", 
+                            "7", 
+                            "7", 
+                            null,
+                            month,
+                            year,
+                            IDGenerator.getCurrentTimestamp(), 
+                            IDGenerator.getCurrentTimestamp());
+                    LeaveBalancesDao.insert(connection, newBalance);
+                    
+                    // ADD DETAILS
+                    LeaveBalanceDetails details = new LeaveBalanceDetails(
+                            IDGenerator.generateIDandRandString(), 
+                            employee.getId(), 
+                            "ADD", 
+                            "0", 
+                            "Added new leave credit data", 
+                            IDGenerator.getCurrentTimestamp(), 
+                            IDGenerator.getCurrentTimestamp());
+                    LeaveBalanceDetailsDao.insert(connection, details);
+                }
+            }
+            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #| Calisto done updating leave credits.\n");
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error updating leave credits", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void leaveCreditYearlyAssistant() {
+        try {
+            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess leave credits (YEAR)\n");
+            List<Employees> employees = EmployeesDao.getAll(connection);
+            int size = employees.size();
+            
+            String month = IDGenerator.getMonth();
+            String year = IDGenerator.getYear();
+            
+            for (int i=0; i<size; i++) {
+                Employees employee = employees.get(i);
+                LeaveBalances leaveBalance = LeaveBalancesDao.getOneByEmployeeId(connection, employee.getId());
+                
+                if (leaveBalance != null) {
+                    /**
+                     * ======================================
+                     * UPDATE YEARLY
+                     * ======================================
+                     */
+                    if (leaveBalance.getYear().equals(year)) {
+                        // IF LEAVE FOR THIS YEAR EXISTS, DO NOT UPDATE BALANCE
+                    } else {
+                        leaveBalance.setSpecial("3");
+                        leaveBalance.setMaternity("105");
+                        leaveBalance.setMaternityForSoloMother("120");
+                        leaveBalance.setPaternity("7");
+                        leaveBalance.setSoloParent("7");
+                        leaveBalance.setYear(year);
+                        LeaveBalancesDao.update(connection, leaveBalance);
+
+                        // ADD DETAILS FOR SPECIAL
+                        LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "3", 
+                                "Added 3 days to Special Leave credit balance for " + year, 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+
+                        // ADD DETAILS FOR MATERNITY
+                        details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "105", 
+                                "Added 105 days to Maternity Leave credit balance for " + year, 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+                        
+                        // ADD DETAILS FOR MATERNITY FOR SOLO MOTHER
+                        details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "120", 
+                                "Added 120 days to Maternity Leave for Solo Mother credit balance for " + year, 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+                        
+                        // ADD DETAILS FOR PATERNITY
+                        details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "7", 
+                                "Added 7 days to Paternity Leave credit balance for " + year, 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+                        
+                        // ADD DETAILS FOR SOLO PARENT
+                        details = new LeaveBalanceDetails(
+                                IDGenerator.generateIDandRandString(), 
+                                employee.getId(), 
+                                "ADD", 
+                                "7", 
+                                "Added 7 days to Solo Parent Leave credit balance for " + year, 
+                                IDGenerator.getCurrentTimestamp(), 
+                                IDGenerator.getCurrentTimestamp());
+                        LeaveBalanceDetailsDao.insert(connection, details);
+                    }
+                } else {
+                    // ADD NEW
+                    LeaveBalances newBalance = new LeaveBalances(IDGenerator.generateIDandRandString(), 
+                            employee.getId(), 
+                            "0", 
+                            "0", 
+                            "3", 
+                            "105", 
+                            "120", 
+                            "7", 
+                            "7", 
+                            null,
+                            month,
+                            year,
+                            IDGenerator.getCurrentTimestamp(), 
+                            IDGenerator.getCurrentTimestamp());
+                    LeaveBalancesDao.insert(connection, newBalance);
+                    
+                    // ADD DETAILS
+                    LeaveBalanceDetails details = new LeaveBalanceDetails(
+                            IDGenerator.generateIDandRandString(), 
+                            employee.getId(), 
+                            "ADD", 
+                            "0", 
+                            "Added new leave credit data", 
+                            IDGenerator.getCurrentTimestamp(), 
+                            IDGenerator.getCurrentTimestamp());
+                    LeaveBalanceDetailsDao.insert(connection, details);
+                }
+            }
+            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #| Calisto done updating leave credits (YEAR).\n");
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error updating leave credits", e.getMessage(), JOptionPane.ERROR_MESSAGE);
         }
     }
 }

@@ -20,11 +20,12 @@ public class Attendance {
     private String created_at;
     private String updated_at;
     private String DeviceIp;
+    private String Type;
 
     public Attendance() {
     }
 
-    public Attendance(String id, String BiometricUserId, String EmployeeId, String UserId, String Timestamp, String State, String UID, String created_at, String updated_at, String DeviceIp) {
+    public Attendance(String id, String BiometricUserId, String EmployeeId, String UserId, String Timestamp, String State, String UID, String created_at, String updated_at, String DeviceIp, String Type) {
         this.id = id;
         this.BiometricUserId = BiometricUserId;
         this.EmployeeId = EmployeeId;
@@ -35,8 +36,10 @@ public class Attendance {
         this.created_at = created_at;
         this.updated_at = updated_at;
         this.DeviceIp = DeviceIp;
+        this.Type = Type;
     }
 
+    
     public String getId() {
         return id;
     }
@@ -115,6 +118,14 @@ public class Attendance {
 
     public void setDeviceIp(String DeviceIp) {
         this.DeviceIp = DeviceIp;
+    }
+
+    public String getType() {
+        return Type;
+    }
+
+    public void setType(String Type) {
+        this.Type = Type;
     }
     
     
