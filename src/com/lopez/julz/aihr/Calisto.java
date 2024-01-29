@@ -7,6 +7,8 @@ package com.lopez.julz.aihr;
 
 import com.lopez.julz.aihr.dao.Attendance;
 import com.lopez.julz.aihr.dao.AttendanceDao;
+import com.lopez.julz.aihr.dao.BiometricDevices;
+import com.lopez.julz.aihr.dao.BiometricDevicesDao;
 import com.lopez.julz.aihr.dao.BiometricUsers;
 import com.lopez.julz.aihr.dao.BiometricUsersDao;
 import com.lopez.julz.aihr.dao.DatabaseConnection;
@@ -20,16 +22,31 @@ import com.lopez.julz.aihr.dao.PayrollSchedules;
 import com.lopez.julz.aihr.dao.PayrollSchedulesDao;
 import com.lopez.julz.aihr.helpers.IDGenerator;
 import com.lopez.julz.aihr.helpers.Notifiers;
+import com.lopez.julz.aihr.helpers.ObjectHelpers;
 import com.lopez.julz.aihr.pojos.AttendanceResponse;
 import com.lopez.julz.aihr.pojos.BiometricUsersResponse;
+import com.lopez.julz.aihr.pojos.LeaveMatrix;
 import java.awt.Color;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
 import java.sql.Connection;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JProgressBar;
+import javax.swing.JTextArea;
+import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.DefaultCaret;
 import retrofit2.Call;
@@ -63,6 +80,16 @@ public class Calisto extends javax.swing.JFrame {
     private List<String> biometricIps;
     public int ipIndex, ipsize;
     
+    public List<BiometricDevices> biometricsList;
+    
+    public List<LeaveMatrix> monthlyMatrix;
+    
+    public WorkerSync worker1, worker2, worker3, worker4, worker5, worker6;
+    
+    // TEST
+    
+    List<String> ipList = new ArrayList<>();
+    
     public Calisto() {
         initComponents();
         setLocationRelativeTo(this);
@@ -81,11 +108,18 @@ public class Calisto extends javax.swing.JFrame {
         usersList = new ArrayList<>();
         attendances = new ArrayList<>();
         biometricIps = new ArrayList<>();
+        biometricsList = BiometricDevicesDao.getIps(connection);
+                
+        bioIps.setText(BiometricDevicesDao.getIpsConcat(biometricsList));
+        
+        monthlyMatrix = new ArrayList<>();
+        monthlyMatrix.add(new LeaveMatrix("SICK", 1.25, "MONTHLY"));
+        monthlyMatrix.add(new LeaveMatrix("VACATION", 1.25, "MONTHLY"));
         
         leaveCreditMonthlyWatcher();
         leaveCreditYearlyWatcher();
-        
-        fetchBiometricUsers("192.168.10.39");
+
+        revalidateIps(ipList);
     }
 
     /**
@@ -117,13 +151,30 @@ public class Calisto extends javax.swing.JFrame {
         jPanel4 = new javax.swing.JPanel();
         attendanceLabel = new javax.swing.JLabel();
         attendanceSyncLabel = new javax.swing.JLabel();
-        jScrollPane2 = new javax.swing.JScrollPane();
-        attendanceTable = new javax.swing.JTable();
         jScrollPane3 = new javax.swing.JScrollPane();
         attendanceLogs = new javax.swing.JTextArea();
         attendanceLabel1 = new javax.swing.JLabel();
         jScrollPane5 = new javax.swing.JScrollPane();
         leaveCreditLogs = new javax.swing.JTextArea();
+        jPanel5 = new javax.swing.JPanel();
+        thread1Label = new javax.swing.JLabel();
+        thread1Progress = new javax.swing.JProgressBar();
+        thread1ProgressLabel = new javax.swing.JLabel();
+        thread2Label = new javax.swing.JLabel();
+        thread2Progress = new javax.swing.JProgressBar();
+        thread2ProgressLabel = new javax.swing.JLabel();
+        thread3ProgressLabel = new javax.swing.JLabel();
+        thread3Progress = new javax.swing.JProgressBar();
+        thread3Label = new javax.swing.JLabel();
+        thread4ProgressLabel = new javax.swing.JLabel();
+        thread4Progress = new javax.swing.JProgressBar();
+        thread4Label = new javax.swing.JLabel();
+        thread5Label = new javax.swing.JLabel();
+        thread5Progress = new javax.swing.JProgressBar();
+        thread6Label = new javax.swing.JLabel();
+        thread6Progress = new javax.swing.JProgressBar();
+        thread5ProgressLabel = new javax.swing.JLabel();
+        thread6ProgressLabel = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -134,7 +185,7 @@ public class Calisto extends javax.swing.JFrame {
         jLabel2.setText("I'm an AI dedicated to manage and optimize the HR and Payroll system of BOHECO I. Please don't close or terminate me in order for me to do my job.");
 
         serverIp.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
-        serverIp.setText("192.168.10.161");
+        serverIp.setText("192.168.12.2");
 
         jLabel4.setFont(new java.awt.Font("Arial", 2, 11)); // NOI18N
         jLabel4.setForeground(new java.awt.Color(102, 102, 102));
@@ -145,7 +196,11 @@ public class Calisto extends javax.swing.JFrame {
         jLabel5.setText("Biometric IPS (Separate by Comma)");
 
         bioIps.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
-        bioIps.setText("192.168.10.39, 192.168.11.50");
+        bioIps.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                bioIpsActionPerformed(evt);
+            }
+        });
 
         attendanceSyncButton.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
         attendanceSyncButton.setText("Start Sync");
@@ -260,21 +315,6 @@ public class Calisto extends javax.swing.JFrame {
 
         attendanceSyncLabel.setFont(new java.awt.Font("Arial", 2, 12)); // NOI18N
 
-        attendanceTable.setFont(new java.awt.Font("Arial", 0, 12)); // NOI18N
-        attendanceTable.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-                {},
-                {},
-                {},
-                {}
-            },
-            new String [] {
-
-            }
-        ));
-        attendanceTable.setRowHeight(22);
-        jScrollPane2.setViewportView(attendanceTable);
-
         attendanceLogs.setColumns(20);
         attendanceLogs.setLineWrap(true);
         attendanceLogs.setRows(5);
@@ -288,6 +328,110 @@ public class Calisto extends javax.swing.JFrame {
         leaveCreditLogs.setRows(5);
         jScrollPane5.setViewportView(leaveCreditLogs);
 
+        thread1Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread1Label.setText("Thread 1");
+
+        thread1ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        thread2Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread2Label.setText("Thread 2");
+
+        thread2ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        thread3ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        thread3Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread3Label.setText("Thread 3");
+
+        thread4ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        thread4Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread4Label.setText("Thread 4");
+
+        thread5Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread5Label.setText("Thread 5");
+
+        thread6Label.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        thread6Label.setText("Thread 6");
+
+        thread5ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        thread6ProgressLabel.setFont(new java.awt.Font("Arial", 0, 11)); // NOI18N
+
+        javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
+        jPanel5.setLayout(jPanel5Layout);
+        jPanel5Layout.setHorizontalGroup(
+            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel5Layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(thread1Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 535, Short.MAX_VALUE)
+                    .addComponent(thread2Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(thread3Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(thread4Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(thread6Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(thread5Progress, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel5Layout.createSequentialGroup()
+                        .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(thread1Label)
+                            .addComponent(thread2Label)
+                            .addComponent(thread3Label)
+                            .addComponent(thread4Label)
+                            .addComponent(thread6Label)
+                            .addComponent(thread5Label))
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addGroup(jPanel5Layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(thread1ProgressLabel)
+                            .addComponent(thread2ProgressLabel)
+                            .addComponent(thread3ProgressLabel)
+                            .addComponent(thread6ProgressLabel)
+                            .addComponent(thread5ProgressLabel)
+                            .addComponent(thread4ProgressLabel))))
+                .addContainerGap())
+        );
+        jPanel5Layout.setVerticalGroup(
+            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel5Layout.createSequentialGroup()
+                .addComponent(thread1Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread1Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread1ProgressLabel)
+                .addGap(18, 18, 18)
+                .addComponent(thread2Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread2Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread2ProgressLabel)
+                .addGap(18, 18, 18)
+                .addComponent(thread3Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread3Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread3ProgressLabel)
+                .addGap(18, 18, 18)
+                .addComponent(thread4Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread4Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread4ProgressLabel)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread5Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread5Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread5ProgressLabel)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread6Label)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread6Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(thread6ProgressLabel)
+                .addGap(0, 0, Short.MAX_VALUE))
+        );
+
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
         jPanel4Layout.setHorizontalGroup(
@@ -295,13 +439,13 @@ public class Calisto extends javax.swing.JFrame {
             .addGroup(jPanel4Layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 555, Short.MAX_VALUE)
-                    .addComponent(jScrollPane3)
+                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 555, Short.MAX_VALUE)
                     .addGroup(jPanel4Layout.createSequentialGroup()
                         .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(attendanceLabel)
                             .addComponent(attendanceSyncLabel))
-                        .addGap(0, 0, Short.MAX_VALUE)))
+                        .addGap(0, 0, Short.MAX_VALUE))
+                    .addComponent(jPanel5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(attendanceLabel1)
@@ -318,8 +462,8 @@ public class Calisto extends javax.swing.JFrame {
                 .addComponent(attendanceLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane5)
-                    .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 516, Short.MAX_VALUE))
+                    .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 516, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -373,29 +517,37 @@ public class Calisto extends javax.swing.JFrame {
             attendanceSync = false;
             attendanceSyncButton.setBackground(Color.RED);
             attendanceSyncButton.setText("Start Sync");
+            
+            stopSyncAll();
         } else {
             attendanceSync = true;
             attendanceSyncButton.setBackground(Color.decode("#00988b"));
             attendanceSyncButton.setText("Pause");
             
-            biometricIps.clear();
-            
-            String bIps = bioIps.getText();
-            if (bIps != null || !bIps.isEmpty()) {
-                String ipSplit[] = bIps.split(",");
-                for (int i=0; i<ipSplit.length; i++) {
-                    biometricIps.add(ipSplit[i].trim());
-                }
-            }
-            
-            ipsize = biometricIps.size();
-            if (ipsize > 0) {
-                ipIndex = 0;
-                
-                fetchBiometricAttendances(biometricIps.get(ipIndex));
-            }
+//            biometricIps.clear();
+//            
+//            String bIps = bioIps.getText();
+//            if (bIps != null || !bIps.isEmpty()) {
+//                String ipSplit[] = bIps.split(",");
+//                for (int i=0; i<ipSplit.length; i++) {
+//                    biometricIps.add(ipSplit[i].trim());
+//                }
+//            }
+//            
+//            ipsize = biometricIps.size();
+//            if (ipsize > 0) {
+//                ipIndex = 0;
+//                
+//                fetchBiometricAttendances(biometricIps.get(ipIndex));
+//            }
+            startSyncAll();
         }
+        
     }//GEN-LAST:event_attendanceSyncButtonActionPerformed
+
+    private void bioIpsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_bioIpsActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_bioIpsActionPerformed
 
     /**
      * @param args the command line arguments
@@ -438,7 +590,6 @@ public class Calisto extends javax.swing.JFrame {
     private javax.swing.JTextArea attendanceLogs;
     private javax.swing.JButton attendanceSyncButton;
     private javax.swing.JLabel attendanceSyncLabel;
-    private javax.swing.JTable attendanceTable;
     private javax.swing.JTextField bioIps;
     private javax.swing.JLabel bioUsersLabel;
     private javax.swing.JLabel jLabel1;
@@ -449,14 +600,32 @@ public class Calisto extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
+    private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JSplitPane jSplitPane1;
     private javax.swing.JTextArea leaveCreditLogs;
     private javax.swing.JTextField serverIp;
+    private javax.swing.JLabel thread1Label;
+    private javax.swing.JProgressBar thread1Progress;
+    private javax.swing.JLabel thread1ProgressLabel;
+    private javax.swing.JLabel thread2Label;
+    private javax.swing.JProgressBar thread2Progress;
+    private javax.swing.JLabel thread2ProgressLabel;
+    private javax.swing.JLabel thread3Label;
+    private javax.swing.JProgressBar thread3Progress;
+    private javax.swing.JLabel thread3ProgressLabel;
+    private javax.swing.JLabel thread4Label;
+    private javax.swing.JProgressBar thread4Progress;
+    private javax.swing.JLabel thread4ProgressLabel;
+    private javax.swing.JLabel thread5Label;
+    private javax.swing.JProgressBar thread5Progress;
+    private javax.swing.JLabel thread5ProgressLabel;
+    private javax.swing.JLabel thread6Label;
+    private javax.swing.JProgressBar thread6Progress;
+    private javax.swing.JLabel thread6ProgressLabel;
     private javax.swing.JTextArea usersLogs;
     private javax.swing.JLabel usersSyncLabel;
     private javax.swing.JTable usersTable;
@@ -496,12 +665,18 @@ public class Calisto extends javax.swing.JFrame {
                         showUsersTable();
                     } else {
                         Notifiers.showMessage("Error getting users", "I can't get the bioimetric users (BIOMETRIC: " + ipOfBiometrics + "). \n" + rspns.message() + " \n" + rspns.body(), JOptionPane.ERROR_MESSAGE);
+                        try {
+                            System.out.println("" + rspns.errorBody().string());
+                        } catch (IOException ex) {
+                            Logger.getLogger(Calisto.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 }
 
                 @Override
                 public void onFailure(Call<List<BiometricUsersResponse>> call, Throwable thrwbl) {
                     Notifiers.showMessage("Error getting users (BIOMETRIC: " + ipOfBiometrics + ")", thrwbl.getMessage(), JOptionPane.ERROR_MESSAGE);
+                    thrwbl.printStackTrace();
                 }
             });
         } catch (Exception e) {
@@ -533,11 +708,479 @@ public class Calisto extends javax.swing.JFrame {
         }
     }
     
+    public void revalidateIps(List<String> ipList) {
+        ipList.clear();
+        for (int i=0; i<biometricsList.size(); i++) {
+            ipList.add(biometricsList.get(i).getIPAddress());
+        }
+    }
+    
+    public void stopSyncAll() {
+        try {
+            if (worker1 != null && !worker1.isCancelled() && !worker1.isDone()) {
+                worker1.cancel(true);
+            }
+            
+            if (worker2 != null && !worker2.isCancelled() && !worker2.isDone()) {
+                worker2.cancel(true);
+            }
+            
+            if (worker3 != null && !worker3.isCancelled() && !worker3.isDone()) {
+                worker3.cancel(true);
+            }
+            
+            if (worker4 != null && !worker4.isCancelled() && !worker4.isDone()) {
+                worker4.cancel(true);
+            }
+            
+            if (worker5 != null && !worker5.isCancelled() && !worker5.isDone()) {
+                worker5.cancel(true);
+            }
+            
+            if (worker6 != null && !worker6.isCancelled() && !worker6.isDone()) {
+                worker6.cancel(true);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error stopping sync!", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void startSyncAll() {
+        try {
+            revalidateIps(ipList);
+            
+            int s = ipList.size();
+            if (s < 2) {
+                startThread1();  
+            } else if (s < 3) {
+                startThread1();
+                startThread2();
+            } else if (s < 4) {
+                startThread1();
+                startThread2();
+                startThread3();
+            } else if (s < 5) {
+                startThread1();
+                startThread2();
+                startThread3();
+                startThread4();
+            } else if (s < 6) {
+                startThread1();
+                startThread2();
+                startThread3();
+                startThread4();
+                startThread5();
+            } else {
+                startThread1();
+                startThread2();
+                startThread3();
+                startThread4();
+                startThread5();
+                startThread6();
+            }           
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public void startThread1() {
+        worker1 = new WorkerSync(ipList, thread1Progress, attendanceLabel, attendanceLogs, 1, thread1Label); 
+        worker1.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread1Progress.setValue(prog);
+                    thread1ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker1.execute();
+    }
+    
+    public void startThread2() {
+        worker2 = new WorkerSync(ipList, thread2Progress, attendanceLabel, attendanceLogs, 2, thread2Label); 
+        worker2.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread2Progress.setValue(prog);
+                    thread2ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker2.execute();
+    }
+    
+    public void startThread3() {
+        worker3 = new WorkerSync(ipList, thread3Progress, attendanceLabel, attendanceLogs, 3, thread3Label); 
+        worker3.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread3Progress.setValue(prog);
+                    thread3ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker3.execute();
+    }
+    
+    public void startThread4() {
+        worker4 = new WorkerSync(ipList, thread4Progress, attendanceLabel, attendanceLogs, 4, thread4Label); 
+        worker4.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread4Progress.setValue(prog);
+                    thread4ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker4.execute();
+    }
+    
+    public void startThread5() {
+        worker5 = new WorkerSync(ipList, thread5Progress, attendanceLabel, attendanceLogs, 5, thread5Label); 
+        worker5.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread5Progress.setValue(prog);
+                    thread5ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker5.execute();
+    }
+    
+    public void startThread6() {
+        worker6 = new WorkerSync(ipList, thread6Progress, attendanceLabel, attendanceLogs, 6, thread6Label); 
+        worker6.addPropertyChangeListener(new PropertyChangeListener()  {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if ("progress".equals(evt.getPropertyName())) {
+                    int prog = (Integer) evt.getNewValue();
+                    thread6Progress.setValue(prog);
+                    thread6ProgressLabel.setText(prog + " %");
+                }
+            }
+        });
+        worker6.execute();
+    }
+    
+    public void fetchThreadedBiometricAttendances(JProgressBar progress) {
+        try {
+            String ipOfBiometrics = ipList.get(0);
+            ipList.remove(ipOfBiometrics);
+
+            System.out.println("FETCHING FROM " + ipOfBiometrics);
+            attendanceSyncLabel.setText("Syncing (BIOMETRIC: " + ipOfBiometrics + ")");
+            attendanceLogs.append("\nSTART SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+            Call<List<AttendanceResponse>> attendanceCall = requestPlaceHolder.getAttendance(ipOfBiometrics);
+            
+            attendanceCall.enqueue(new Callback<List<AttendanceResponse>>() {
+                @Override
+                public void onResponse(Call<List<AttendanceResponse>> call, Response<List<AttendanceResponse>> rspns) {
+                    if (rspns.isSuccessful()) {
+                        System.out.println("DATE FETCHED : " + ipOfBiometrics);
+                        List<AttendanceResponse> att = rspns.body();
+                        
+                        int size = att.size();
+
+                    } else {
+                        ipList.add(ipOfBiometrics);
+                        attendanceLogs.append("\nERROR SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                        System.out.println("ERROR FETCHING FROM " + ipOfBiometrics);
+                        progress.setValue(0);
+                        fetchThreadedBiometricAttendances(progress);
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<List<AttendanceResponse>> call, Throwable thrwbl) {
+                    ipList.add(ipOfBiometrics);
+                    attendanceLogs.append("\nERROR SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                    System.out.println("ERROR FETCHING FROM " + ipOfBiometrics);
+                    progress.setValue(0);
+                    fetchThreadedBiometricAttendances(progress);
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+        
+    public class WorkerSync extends SwingWorker<Object, Object> {
+
+        JProgressBar progressbar; 
+        JLabel attendanceSyncLabel;
+        JTextArea attendanceLogs;
+        int threadNo;
+        JLabel threadLabel;
+        
+        public WorkerSync(List<String> ipList, JProgressBar progressbar, JLabel attendanceSyncLabel, JTextArea attendanceLogs, int threadNo, JLabel threadLabel) {
+            this.progressbar = progressbar;
+            this.attendanceSyncLabel = attendanceSyncLabel;
+            this.attendanceLogs = attendanceLogs;
+            this.threadNo = threadNo;
+            this.threadLabel = threadLabel;
+        }
+        
+        @Override
+        protected Object doInBackground() throws Exception {
+            try {
+                String ipOfBiometrics = ipList.get(0);
+                ipList.remove(ipOfBiometrics);
+                
+                /**
+                 * ================================================
+                 * FETCH BIOMETRIC USERS
+                 * ================================================
+                 */
+                usersSyncLabel.setText("Syncing from Biometrics (BIOMETRIC: " + ipOfBiometrics + ")...");
+                usersLogs.append("\nSYNC STARTED in BIOMETRIC: " + ipOfBiometrics + "");
+                Call<List<BiometricUsersResponse>> usersCall = requestPlaceHolder.getUsers(ipOfBiometrics);
+
+                usersCall.enqueue(new Callback<List<BiometricUsersResponse>>() {
+                    @Override
+                    public void onResponse(Call<List<BiometricUsersResponse>> call, Response<List<BiometricUsersResponse>> rspns) {
+                        if (rspns.isSuccessful()) {
+                            usersSyncLabel.setText("Inserting data to database (BIOMETRIC: " + ipOfBiometrics + ")...");
+                            List<BiometricUsersResponse> users = rspns.body();
+
+                            for (int i=0; i<users.size(); i++) {
+                                BiometricUsers bioUser = new BiometricUsers(
+                                        IDGenerator.generateIDandRandString(),
+                                        users.get(i).getUid(),
+                                        users.get(i).getName(),
+                                        users.get(i).getUserid(),
+                                        users.get(i).getRole(),
+                                        null,
+                                        IDGenerator.getCurrentTimestamp(),
+                                        IDGenerator.getCurrentTimestamp()
+                                );
+
+                                if (BiometricUsersDao.getOneByNameAndUserId(connection, bioUser.getName(), bioUser.getUserId()) != null) {
+//                                    System.out.println("Skipped, already exists in DB: User " + bioUser.getName());
+                                } else {
+                                    BiometricUsersDao.insert(connection, bioUser);
+                                }
+                            }
+                            usersSyncLabel.setText("Syncing done (BIOMETRIC: " + ipOfBiometrics + ")!");
+                            usersLogs.append("\nSUCCESSFUL SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                            showUsersTable();
+                        } else {
+                            usersLogs.append("\nERROR SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                            try {
+                                System.out.println("" + rspns.errorBody().string());
+                            } catch (IOException ex) {
+                                Logger.getLogger(Calisto.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<BiometricUsersResponse>> call, Throwable thrwbl) {
+                        usersLogs.append("\nERROR GETTING USERS: Biometric " + ipOfBiometrics + "");
+                        
+                        thrwbl.printStackTrace();
+                    }
+                });
+                
+                /**
+                 * ================================================
+                 * FETCH ATTENDANCE
+                 * ================================================
+                 */
+                System.out.println("FETCHING FROM " + ipOfBiometrics);
+                attendanceSyncLabel.setText("Syncing (BIOMETRIC: " + ipOfBiometrics + ")");
+                attendanceLogs.append("\nSTART SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                threadLabel.setText("Thread " + threadNo + " |~    " + ipOfBiometrics + " Starting...");
+                
+                Call<List<AttendanceResponse>> attendanceCall = requestPlaceHolder.getAttendance(ipOfBiometrics);
+
+                attendanceCall.enqueue(new Callback<List<AttendanceResponse>>() {
+                    @Override
+                    public void onResponse(Call<List<AttendanceResponse>> call, Response<List<AttendanceResponse>> rspns) {
+                        if (rspns.isSuccessful()) {
+                            threadLabel.setText("Thread " + threadNo + " |~    " + ipOfBiometrics + " Inserting data...");
+                            List<AttendanceResponse> att = rspns.body();
+
+                            int size = att.size();
+
+                            for (int i=0; i<size; i++) {
+                                String type = "";
+                                String uid = att.get(i).getId();
+                                PayrollSchedules shift = PayrollSchedulesDao.getOnByEmployeeBioId(connection, uid);
+
+                                Date bioTimestamp = IDGenerator.parseTimestamp(att.get(i).getTimestamp());
+                                String bioDate = IDGenerator.parseDate(att.get(i).getTimestamp());
+                                if (shift != null) {
+                                    if (shift.getStartTime() != null && shift.getEndTime() != null) {
+                                        Date startTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getStartTime()), 120));
+                                        Date breakStart = IDGenerator.parseTimestamp(bioDate + " " + IDGenerator.parseTime(shift.getBreakStart()));
+                                        Date breakMid = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getBreakStart()), 30));
+                                        Date breakEnd = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getBreakEnd()), 120));
+                                        if (bioTimestamp.before(startTime)) {
+                                            type = "AM IN";
+                                        } else if (bioTimestamp.after(breakStart) && bioTimestamp.before(breakMid)) {
+                                            type = "AM OUT";
+                                        } else if (bioTimestamp.after(breakMid) && bioTimestamp.before(breakEnd)) {
+                                            type = "PM IN";
+                                        } else if (bioTimestamp.after(breakEnd)) {
+                                            type = "PM OUT";
+                                        } else {
+                                            type = "AMBIGUOS";
+                                        }
+                                    } else {
+                                        Date startTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getStartTime()), 120));
+                                        Date endTime = IDGenerator.parseTimestamp(IDGenerator.addMinutes(bioDate + " " + IDGenerator.parseTime(shift.getEndTime()), -120));
+                                        if (bioTimestamp.before(startTime)) {
+                                            type = "AM IN";
+                                        } else if (bioTimestamp.after(endTime)) {
+                                            type = "PM OUT";
+                                        } else {
+                                            type = "AMBIGUOS";
+                                        }
+                                    } 
+                                } else {
+                                    type = "AMBIGUOS";
+                                }
+                                Attendance attendance = new Attendance(
+                                        IDGenerator.generateIDandRandString(),
+                                        att.get(i).getId(),
+                                        null,
+                                        null,
+                                        att.get(i).getTimestamp(),
+                                        att.get(i).getState(),
+                                        att.get(i).getUid(),
+                                        IDGenerator.getCurrentTimestamp(),
+                                        IDGenerator.getCurrentTimestamp(),
+                                        ipOfBiometrics,
+                                        type
+                                );
+
+                                if (AttendanceDao.getOneByBioUserIdAndTimestamp(connection, attendance.getBiometricUserId(), attendance.getTimestamp()) != null) {
+                                } else {
+                                    AttendanceDao.insert(connection, attendance);
+                                }
+
+                                int prog = Math.round(((float)i / size) * 100f);
+
+                                setProgress(prog);
+                            }
+
+                            attendanceSyncLabel.setText("Syncing done (BIOMETRIC: " + ipOfBiometrics + ")");
+                            attendanceLogs.append("\nSUCCESS: Syncing done (BIOMETRIC: " + ipOfBiometrics + ")");
+                            threadLabel.setText("Thread " + threadNo + " |~    " + ipOfBiometrics + " Finished inserting data");
+
+                            ipList.add(ipOfBiometrics);
+                            setProgress(0);
+                            cancel(true);
+                            switch (threadNo) {
+                                case 1:
+                                    startThread1();
+                                    break;
+                                case 2:
+                                    startThread2();
+                                    break;
+                                case 3:
+                                    startThread3();
+                                    break;
+                                case 4:
+                                    startThread4();
+                                    break;
+                                case 5:
+                                    startThread5();
+                                    break;
+                                case 6:
+                                    startThread6();
+                                    break;
+                                default:
+                                    break;
+                            }
+                        } else {
+                            ipList.add(ipOfBiometrics);
+                            attendanceLogs.append("\nERROR SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                            threadLabel.setText("Thread " + threadNo + " |~    " + ipOfBiometrics + " Error fetching data!");
+                            setProgress(0);
+                            cancel(true);
+                            switch (threadNo) {
+                                case 1:
+                                    startThread1();
+                                    break;
+                                case 2:
+                                    startThread2();
+                                    break;
+                                case 3:
+                                    startThread3();
+                                    break;
+                                case 4:
+                                    startThread4();
+                                    break;
+                                case 5:
+                                    startThread5();
+                                    break;
+                                case 6:
+                                    startThread6();
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<List<AttendanceResponse>> call, Throwable thrwbl) {
+                        ipList.add(ipOfBiometrics);
+                        attendanceLogs.append("\nERROR SYNC in BIOMETRIC: " + ipOfBiometrics + "");
+                        threadLabel.setText("Thread " + threadNo + " |~    " + ipOfBiometrics + " Error fetching data! ### " + thrwbl.getMessage());
+                        setProgress(0);
+                        cancel(true);
+                        switch (threadNo) {
+                            case 1:
+                                startThread1();
+                                break;
+                            case 2:
+                                startThread2();
+                                break;
+                            case 3:
+                                startThread3();
+                                break;
+                            case 4:
+                                startThread4();
+                                break;
+                            case 5:
+                                startThread5();
+                                break;
+                            case 6:
+                                startThread6();
+                                break;
+                            default:
+                                break;
+                        }                        
+                    }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+                        
+            return null;
+        }
+
+    }
+    
     public void fetchBiometricAttendances(String ipOfBiometrics) {
         try {            
             attendanceSyncLabel.setText("Syncing from Biometrics (BIOMETRIC: " + ipOfBiometrics + ")...");
             attendanceLogs.append("\nINFO: Syncing from Biometrics (BIOMETRIC: " + ipOfBiometrics + ")");
-//            attendanceLogs.setCaretPosition(attendanceLogs.getDocument().getLength());
             Call<List<AttendanceResponse>> attendanceCall = requestPlaceHolder.getAttendance(ipOfBiometrics);
             
             attendanceCall.enqueue(new Callback<List<AttendanceResponse>>() {
@@ -546,7 +1189,6 @@ public class Calisto extends javax.swing.JFrame {
                     if (rspns.isSuccessful()) {
                         attendanceSyncLabel.setText("Inserting data to database (BIOMETRIC: " + ipOfBiometrics + ")...");
                         attendanceLogs.append("\nINFO: Inserting data to database (BIOMETRIC: " + ipOfBiometrics + ")");
-//                        attendanceLogs.setCaretPosition(attendanceLogs.getDocument().getLength());
                         List<AttendanceResponse> att = rspns.body();
                         
                         int size = att.size();
@@ -634,8 +1276,6 @@ public class Calisto extends javax.swing.JFrame {
                             fetchBiometricAttendances(biometricIps.get(ipIndex));
                         }
                         attendanceLogs.append("\nERROR: I can't get the bioimetric attendance  (BIOMETRIC: " + ipOfBiometrics + "). " + rspns.message() + " : " + rspns.raw());
-//                        attendanceLogs.setCaretPosition(attendanceLogs.getDocument().getLength());
-//                        Notifiers.showMessage("Error getting attendance", "I can't get the bioimetric attendance  (BIOMETRIC: " + ipOfBiometrics + "). \n" + rspns.message() + " \n" + rspns.body(), JOptionPane.ERROR_MESSAGE);
                     }
                 }
 
@@ -651,7 +1291,6 @@ public class Calisto extends javax.swing.JFrame {
                         fetchBiometricAttendances(biometricIps.get(ipIndex));
                     }
                     attendanceLogs.append("\nERROR:  (BIOMETRIC: " + ipOfBiometrics + "). " + thrwbl.getMessage());
-//                    Notifiers.showMessage("Error getting attendance (BIOMETRIC: " + ipOfBiometrics + ")", thrwbl.getMessage(), JOptionPane.ERROR_MESSAGE);
                 }
             });
         } catch (Exception e) {
@@ -677,7 +1316,7 @@ public class Calisto extends javax.swing.JFrame {
             
             attendanceModel = new DefaultTableModel(data, attendanceCol);
             
-            attendanceTable.setModel(attendanceModel);
+//            attendanceTable.setModel(attendanceModel);
             attendanceLabel.setText("Biometric Attendances fetched (" + attendanceSize + " rows)");
         } catch (Exception e) {
             e.printStackTrace();
@@ -693,17 +1332,20 @@ public class Calisto extends javax.swing.JFrame {
                 public void run() {  
                    String dayDate = IDGenerator.getDayDate();
             
-                    if (dayDate.equals("01")) {
+//                    if (dayDate.equals("01")) {
+//                        System.out.println("Leave credit processing started: " + dayDate);
+//                        leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Leave Credit Assistant starting\n");
+//                        leaveCreditMonthlyAssistant();
+//                    } else {
+//                        System.out.println("Day skipped for leave processing: " + dayDate);
+//                        leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Day skipped for leave processing (" + dayDate + ")\n");
+//                    } 
                         System.out.println("Leave credit processing started: " + dayDate);
                         leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Leave Credit Assistant starting\n");
                         leaveCreditMonthlyAssistant();
-                    } else {
-                        System.out.println("Day skipped for leave processing: " + dayDate);
-                        leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Day skipped for leave processing (" + dayDate + ")\n");
-                    } 
                 };  
             };  
-            t.scheduleAtFixedRate(tt, new Date(), 3600000); 
+            t.scheduleAtFixedRate(tt, new Date(), 3650000); // run hourly
         } catch (Exception e) {
             e.printStackTrace();
             Notifiers.showMessage("Error updating leave credits", e.getMessage(), JOptionPane.ERROR_MESSAGE);
@@ -719,7 +1361,7 @@ public class Calisto extends javax.swing.JFrame {
                    leaveCreditYearlyAssistant();
                 };  
             };  
-            t.scheduleAtFixedRate(tt, new Date(), 3650000); 
+            t.scheduleAtFixedRate(tt, new Date(), 3650000); // run hourly
         } catch (Exception e) {
             e.printStackTrace();
             Notifiers.showMessage("Error updating leave credits yearly", e.getMessage(), JOptionPane.ERROR_MESSAGE);
@@ -728,7 +1370,7 @@ public class Calisto extends javax.swing.JFrame {
     
     public void leaveCreditMonthlyAssistant() {
         try {
-            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess leave credits\n");
+            leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess monthly leave credits\n");
             List<Employees> employees = EmployeesDao.getAll(connection);
             int size = employees.size();
             
@@ -745,38 +1387,117 @@ public class Calisto extends javax.swing.JFrame {
                      * UPDATE MONTHLY
                      * ======================================
                      */
-                    if (leaveBalance.getMonth().equals(month)) {
-                        // IF LEAVE FOR THIS MONTH EXISTS, DO NOT UPDATE BALANCE
-                    } else {
-                        double vacation = Double.valueOf(leaveBalance.getVacation()) + 1.25;
-                        double sick = Double.valueOf(leaveBalance.getSick()) + 1.25;
-                        leaveBalance.setVacation(vacation + "");
-                        leaveBalance.setSick(sick + "");
-                        leaveBalance.setMonth(month);
-                        LeaveBalancesDao.update(connection, leaveBalance);
+                    double vacation = Double.valueOf(leaveBalance.getVacation());
+                    double sick = Double.valueOf(leaveBalance.getSick());
 
-                        // ADD DETAILS FOR VACATION
-                        LeaveBalanceDetails details = new LeaveBalanceDetails(
-                                IDGenerator.generateIDandRandString(), 
-                                employee.getId(), 
-                                "ADD", 
-                                "1.25", 
-                                "Added 1.25 days to Vacation Leave credit balance for " + month + " " + year + " (current total: " + leaveBalance.getVacation() + ")", 
-                                IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
-                        LeaveBalanceDetailsDao.insert(connection, details);
+                    // LOOP LEAVE MATRIX
+                    for (LeaveMatrix leaveMatrix : monthlyMatrix) {
+                        LeaveBalanceDetails earliestLeave = LeaveBalanceDetailsDao.getEarliest(connection, employee.getId(), leaveMatrix.getLeaveType());
 
-                        // ADD DETAILS FOR SICK
-                        details = new LeaveBalanceDetails(
-                                IDGenerator.generateIDandRandString(), 
-                                employee.getId(), 
-                                "ADD", 
-                                "1.25", 
-                                "Added 1.25 days to Sick Leave credit balance for " + month + " " + year + " (current total: " + leaveBalance.getSick()+ ")", 
-                                IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
-                        LeaveBalanceDetailsDao.insert(connection, details);
+                        if (earliestLeave != null) {
+                            List<String> monthsElapsed = getMonthsFromDate(earliestLeave.getMonth(), ObjectHelpers.getSqlDate());
+
+                            for (String monthX : monthsElapsed) {
+
+                                if (monthX.equals(earliestLeave.getMonth())) {
+                                    // SKIP ADDING BALANCE IF ADDED ALREADY
+                                } else {               
+                                    System.out.println(employee.getFirstName() + " | " + leaveMatrix.getLeaveType() + " - " + monthX);                         
+                                    if (leaveMatrix.getLeaveType().equals("VACATION")) {
+                                        LeaveBalanceDetails checkLog = LeaveBalanceDetailsDao.getOneByMonth(connection, employee.getId(), "VACATION", monthX);
+                                        
+                                        if (checkLog != null) {
+                                            // SKIP IF LOG EXISTS THIS MONTH
+                                        } else {
+                                            vacation += 1.25;
+                                            // ADD DETAILS FOR VACATION
+                                            LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                                    IDGenerator.generateIDandRandString(), 
+                                                    employee.getId(), 
+                                                    "ADD", 
+                                                    "1.25", 
+                                                    "Added 1.25 days to Vacation Leave credit balance for " + ObjectHelpers.formatMonthYear(monthX) + " (current total: " + vacation + ")", 
+                                                    IDGenerator.getCurrentTimestamp(), 
+                                                    IDGenerator.getCurrentTimestamp(),
+                                                    monthX,
+                                                    "VACATION");
+                                            LeaveBalanceDetailsDao.insert(connection, details);
+                                        }
+                                            
+                                    } else if (leaveMatrix.getLeaveType().equals("SICK")) {
+                                        LeaveBalanceDetails checkLog = LeaveBalanceDetailsDao.getOneByMonth(connection, employee.getId(), "SICK", monthX);
+                                        
+                                        if (checkLog != null) {
+                                            // SKIP IF LOG EXISTS THIS MONTH
+                                        } else {
+                                            sick += 1.25;
+
+                                            // ADD DETAILS FOR SICK
+                                            LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                                    IDGenerator.generateIDandRandString(), 
+                                                    employee.getId(), 
+                                                    "ADD", 
+                                                    "1.25", 
+                                                    "Added 1.25 days to Sick Leave credit balance for " + ObjectHelpers.formatMonthYear(monthX) + " (current total: " + sick + ")", 
+                                                    IDGenerator.getCurrentTimestamp(), 
+                                                    IDGenerator.getCurrentTimestamp(),
+                                                    monthX,
+                                                    "SICK");
+                                            LeaveBalanceDetailsDao.insert(connection, details);
+                                        } 
+                                    }
+                                }                                        
+                            }
+                        } else {
+                            if (leaveMatrix.getLeaveType().equals("VACATION")) {
+                                LeaveBalanceDetails checkLog = LeaveBalanceDetailsDao.getOneByMonth(connection, employee.getId(), "VACATION", ObjectHelpers.getSqlDateMonth());
+                                        
+                                if (checkLog != null) {
+                                    // SKIP IF LOG EXISTS THIS MONTH
+                                } else {
+                                    vacation += 0;
+                                    // ADD DETAILS FOR VACATION
+                                    LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                            IDGenerator.generateIDandRandString(), 
+                                            employee.getId(), 
+                                            "ADD", 
+                                            "0", 
+                                            "Added 0 days to Vacation Leave credit balance for " + ObjectHelpers.formatMonthYear(ObjectHelpers.getSqlDateMonth()) + " (current total: " + vacation + ")", 
+                                            IDGenerator.getCurrentTimestamp(), 
+                                            IDGenerator.getCurrentTimestamp(),
+                                            ObjectHelpers.getSqlDateMonth(),
+                                            "VACATION");
+                                    LeaveBalanceDetailsDao.insert(connection, details);
+                                }  
+                            } else if (leaveMatrix.getLeaveType().equals("SICK")) {
+                                LeaveBalanceDetails checkLog = LeaveBalanceDetailsDao.getOneByMonth(connection, employee.getId(), "SICK", ObjectHelpers.getSqlDateMonth());
+                                        
+                                if (checkLog != null) {
+                                    // SKIP IF LOG EXISTS THIS MONTH
+                                } else {
+                                    sick += 0;
+
+                                    // ADD DETAILS FOR SICK
+                                    LeaveBalanceDetails details = new LeaveBalanceDetails(
+                                            IDGenerator.generateIDandRandString(), 
+                                            employee.getId(), 
+                                            "ADD", 
+                                            "0", 
+                                            "Added 0 days to Sick Leave credit balance for " + ObjectHelpers.formatMonthYear(ObjectHelpers.getSqlDateMonth()) + " (current total: " + sick + ")", 
+                                            IDGenerator.getCurrentTimestamp(), 
+                                            IDGenerator.getCurrentTimestamp(),
+                                            ObjectHelpers.getSqlDateMonth(),
+                                            "SICK");
+                                    LeaveBalanceDetailsDao.insert(connection, details);
+                                } 
+                            }
+                        }
                     }
+
+                    leaveBalance.setVacation(vacation + "");
+                    leaveBalance.setSick(sick + "");
+                    leaveBalance.setMonth(month);
+                    LeaveBalancesDao.update(connection, leaveBalance);
                 } else {
                     // ADD NEW
                     LeaveBalances newBalance = new LeaveBalances(IDGenerator.generateIDandRandString(), 
@@ -801,9 +1522,23 @@ public class Calisto extends javax.swing.JFrame {
                             employee.getId(), 
                             "ADD", 
                             "0", 
-                            "Added new leave credit data", 
+                            "Added 0 days to Vacation Leave credit balance for " + ObjectHelpers.formatMonthYear(ObjectHelpers.getSqlDateMonth()) + " (current total: 0)", 
                             IDGenerator.getCurrentTimestamp(), 
-                            IDGenerator.getCurrentTimestamp());
+                            IDGenerator.getCurrentTimestamp(),
+                            ObjectHelpers.getSqlDateMonth(),
+                            "VACATION");
+                    LeaveBalanceDetailsDao.insert(connection, details);
+                    
+                    details = new LeaveBalanceDetails(
+                            IDGenerator.generateIDandRandString(), 
+                            employee.getId(), 
+                            "ADD", 
+                            "0", 
+                            "Added 0 days to Sick Leave credit balance for " + ObjectHelpers.formatMonthYear(ObjectHelpers.getSqlDateMonth()) + " (current total: 0)", 
+                            IDGenerator.getCurrentTimestamp(), 
+                            IDGenerator.getCurrentTimestamp(),
+                            ObjectHelpers.getSqlDateMonth(),
+                            "SICK");
                     LeaveBalanceDetailsDao.insert(connection, details);
                 }
             }
@@ -814,7 +1549,7 @@ public class Calisto extends javax.swing.JFrame {
         }
     }
     
-    public void leaveCreditYearlyAssistant() {
+     public void leaveCreditYearlyAssistant() {
         try {
             leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess leave credits (YEAR)\n");
             List<Employees> employees = EmployeesDao.getAll(connection);
@@ -852,7 +1587,9 @@ public class Calisto extends javax.swing.JFrame {
                                 "3", 
                                 "Added 3 days to Special Leave credit balance for " + year, 
                                 IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
+                                IDGenerator.getCurrentTimestamp(),
+                                ObjectHelpers.getSqlDateMonth(),
+                                "SPECIAL");
                         LeaveBalanceDetailsDao.insert(connection, details);
 
                         // ADD DETAILS FOR MATERNITY
@@ -863,7 +1600,9 @@ public class Calisto extends javax.swing.JFrame {
                                 "105", 
                                 "Added 105 days to Maternity Leave credit balance for " + year, 
                                 IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
+                                IDGenerator.getCurrentTimestamp(),
+                                ObjectHelpers.getSqlDateMonth(),
+                                "MATERNITY");
                         LeaveBalanceDetailsDao.insert(connection, details);
                         
                         // ADD DETAILS FOR MATERNITY FOR SOLO MOTHER
@@ -874,7 +1613,9 @@ public class Calisto extends javax.swing.JFrame {
                                 "120", 
                                 "Added 120 days to Maternity Leave for Solo Mother credit balance for " + year, 
                                 IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
+                                IDGenerator.getCurrentTimestamp(),
+                                ObjectHelpers.getSqlDateMonth(),
+                                "MATERNITY FOR SOLO MOTHER");
                         LeaveBalanceDetailsDao.insert(connection, details);
                         
                         // ADD DETAILS FOR PATERNITY
@@ -885,7 +1626,9 @@ public class Calisto extends javax.swing.JFrame {
                                 "7", 
                                 "Added 7 days to Paternity Leave credit balance for " + year, 
                                 IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
+                                IDGenerator.getCurrentTimestamp(),
+                                ObjectHelpers.getSqlDateMonth(),
+                                "PATERNITY");
                         LeaveBalanceDetailsDao.insert(connection, details);
                         
                         // ADD DETAILS FOR SOLO PARENT
@@ -896,7 +1639,9 @@ public class Calisto extends javax.swing.JFrame {
                                 "7", 
                                 "Added 7 days to Solo Parent Leave credit balance for " + year, 
                                 IDGenerator.getCurrentTimestamp(), 
-                                IDGenerator.getCurrentTimestamp());
+                                IDGenerator.getCurrentTimestamp(),
+                                ObjectHelpers.getSqlDateMonth(),
+                                "SOLO PARENT");
                         LeaveBalanceDetailsDao.insert(connection, details);
                     }
                 } else {
@@ -925,7 +1670,9 @@ public class Calisto extends javax.swing.JFrame {
                             "0", 
                             "Added new leave credit data", 
                             IDGenerator.getCurrentTimestamp(), 
-                            IDGenerator.getCurrentTimestamp());
+                            IDGenerator.getCurrentTimestamp(),
+                            ObjectHelpers.getSqlDateMonth(),
+                            "ALL");
                     LeaveBalanceDetailsDao.insert(connection, details);
                 }
             }
@@ -933,6 +1680,39 @@ public class Calisto extends javax.swing.JFrame {
         } catch (Exception e) {
             e.printStackTrace();
             Notifiers.showMessage("Error updating leave credits", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public List<String> getMonthsFromDate(String from, String to) {
+        try {
+            String date1 = "JAN-2015";
+            String date2 = "APR-2015";
+
+            DateFormat formater = new SimpleDateFormat("yyyy-MM-dd");
+
+            Calendar beginCalendar = Calendar.getInstance();
+            Calendar finishCalendar = Calendar.getInstance();
+
+            try {
+                beginCalendar.setTime(formater.parse(from));
+                finishCalendar.setTime(formater.parse(to));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+            List<String> months = new ArrayList<>();
+            
+            while (beginCalendar.before(finishCalendar)) {
+                // add one month to date per loop
+                String date =     formater.format(beginCalendar.getTime()).toUpperCase();
+                months.add(date);
+                beginCalendar.add(Calendar.MONTH, 1);
+            }
+            
+            return months;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

@@ -17,11 +17,13 @@ public class LeaveBalanceDetails {
     private String Details;
     private String created_at;
     private String updated_at;
+    private String Month;
+    private String LeaveType;
 
     public LeaveBalanceDetails() {
     }
-    
-    public LeaveBalanceDetails(String id, String EmployeeId, String Method, String Days, String Details, String created_at, String updated_at) {
+
+    public LeaveBalanceDetails(String id, String EmployeeId, String Method, String Days, String Details, String created_at, String updated_at, String Month, String LeaveType) {
         this.id = id;
         this.EmployeeId = EmployeeId;
         this.Method = Method;
@@ -29,6 +31,8 @@ public class LeaveBalanceDetails {
         this.Details = Details;
         this.created_at = created_at;
         this.updated_at = updated_at;
+        this.Month = Month;
+        this.LeaveType = LeaveType;
     }
 
     public String getId() {
@@ -85,6 +89,22 @@ public class LeaveBalanceDetails {
 
     public void setUpdated_at(String updated_at) {
         this.updated_at = updated_at;
+    }
+
+    public String getMonth() {
+        return Month;
+    }
+
+    public void setMonth(String Month) {
+        this.Month = Month;
+    }
+
+    public String getLeaveType() {
+        return LeaveType;
+    }
+
+    public void setLeaveType(String LeaveType) {
+        this.LeaveType = LeaveType;
     }
     
     

@@ -11,6 +11,6 @@ package com.lopez.julz.aihr;
  */
 public class BaseURL {
     public static String baseUrl(String ip) {
-        return "http://" + ip+ "/hr/public/api/";
+        return "http://" + ip+ ":5000/";
     }
 }
