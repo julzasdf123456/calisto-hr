@@ -12,6 +12,8 @@ import com.lopez.julz.aihr.dao.BiometricDevicesDao;
 import com.lopez.julz.aihr.dao.BiometricUsers;
 import com.lopez.julz.aihr.dao.BiometricUsersDao;
 import com.lopez.julz.aihr.dao.DatabaseConnection;
+import com.lopez.julz.aihr.dao.EmployeeDayOffs;
+import com.lopez.julz.aihr.dao.EmployeeDayOffsDao;
 import com.lopez.julz.aihr.dao.Employees;
 import com.lopez.julz.aihr.dao.EmployeesDao;
 import com.lopez.julz.aihr.dao.LeaveBalanceDetails;
@@ -118,6 +120,7 @@ public class Calisto extends javax.swing.JFrame {
         
         leaveCreditMonthlyWatcher();
         leaveCreditYearlyWatcher();
+        dayOffWatcher();
 
         revalidateIps(ipList);
     }
@@ -175,6 +178,9 @@ public class Calisto extends javax.swing.JFrame {
         thread6Progress = new javax.swing.JProgressBar();
         thread5ProgressLabel = new javax.swing.JLabel();
         thread6ProgressLabel = new javax.swing.JLabel();
+        attendanceLabel2 = new javax.swing.JLabel();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        dayOffLogs = new javax.swing.JTextArea();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -429,8 +435,15 @@ public class Calisto extends javax.swing.JFrame {
                 .addComponent(thread6Progress, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(thread6ProgressLabel)
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGap(0, 204, Short.MAX_VALUE))
         );
+
+        attendanceLabel2.setFont(new java.awt.Font("Arial", 1, 12)); // NOI18N
+        attendanceLabel2.setText("Day-off Automation Assistant (runs every hour)");
+
+        dayOffLogs.setColumns(20);
+        dayOffLogs.setRows(5);
+        jScrollPane2.setViewportView(dayOffLogs);
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
@@ -447,9 +460,11 @@ public class Calisto extends javax.swing.JFrame {
                         .addGap(0, 0, Short.MAX_VALUE))
                     .addComponent(jPanel5, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(attendanceLabel1)
-                    .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 352, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 352, Short.MAX_VALUE)
+                    .addComponent(attendanceLabel2)
+                    .addComponent(jScrollPane2)))
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -462,10 +477,16 @@ public class Calisto extends javax.swing.JFrame {
                 .addComponent(attendanceLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 516, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(jPanel4Layout.createSequentialGroup()
+                        .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(jPanel4Layout.createSequentialGroup()
+                        .addComponent(jScrollPane5, javax.swing.GroupLayout.PREFERRED_SIZE, 283, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(18, 18, 18)
+                        .addComponent(attendanceLabel2)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jScrollPane2)))
                 .addContainerGap())
         );
 
@@ -587,11 +608,13 @@ public class Calisto extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel attendanceLabel;
     private javax.swing.JLabel attendanceLabel1;
+    private javax.swing.JLabel attendanceLabel2;
     private javax.swing.JTextArea attendanceLogs;
     private javax.swing.JButton attendanceSyncButton;
     private javax.swing.JLabel attendanceSyncLabel;
     private javax.swing.JTextField bioIps;
     private javax.swing.JLabel bioUsersLabel;
+    private javax.swing.JTextArea dayOffLogs;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel4;
@@ -602,6 +625,7 @@ public class Calisto extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JScrollPane jScrollPane5;
@@ -1402,7 +1426,7 @@ public class Calisto extends javax.swing.JFrame {
                                 if (monthX.equals(earliestLeave.getMonth())) {
                                     // SKIP ADDING BALANCE IF ADDED ALREADY
                                 } else {               
-                                    System.out.println(employee.getFirstName() + " | " + leaveMatrix.getLeaveType() + " - " + monthX);                         
+//                                    System.out.println(employee.getFirstName() + " | " + leaveMatrix.getLeaveType() + " - " + monthX);                         
                                     if (leaveMatrix.getLeaveType().equals("VACATION")) {
                                         LeaveBalanceDetails checkLog = LeaveBalanceDetailsDao.getOneByMonth(connection, employee.getId(), "VACATION", monthX);
                                         
@@ -1549,7 +1573,7 @@ public class Calisto extends javax.swing.JFrame {
         }
     }
     
-     public void leaveCreditYearlyAssistant() {
+    public void leaveCreditYearlyAssistant() {
         try {
             leaveCreditLogs.append(IDGenerator.getCurrentTimestamp() + " #: Calisto starting to assess leave credits (YEAR)\n");
             List<Employees> employees = EmployeesDao.getAll(connection);
@@ -1713,6 +1737,69 @@ public class Calisto extends javax.swing.JFrame {
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+    
+    public void dayOffWatcher() {
+        try {
+            Timer t = new Timer();  
+            TimerTask tt = new TimerTask() {  
+                @Override  
+                public void run() {  
+                   dayOffAssistant();
+                };  
+            };  
+            t.scheduleAtFixedRate(tt, new Date(), 3650000); // run hourly
+        } catch (Exception e) {
+            e.printStackTrace();
+            Notifiers.showMessage("Error populating dayoffs!", e.getMessage(), JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    public void dayOffAssistant() {
+        try {
+            List<Employees> employees = EmployeesDao.getAllWithDayOff(connection);
+            
+            if (employees != null) {
+                int size = employees.size();
+                
+                if (size > 0) {
+                    dayOffLogs.append(IDGenerator.getCurrentTimestamp() + " #| Calisto : Day-off assitant starting...\n");
+                    
+                    for (int i=0; i<size; i++) {
+                        Employees employee = employees.get(i);
+                        
+                        if (employee != null) {
+                            String dayOffDays = employee.getDayOffDates();
+                            
+                            if (dayOffDays != null) {
+                                String indivDays[] = dayOffDays.split(";");
+                                for(int x=0; x<indivDays.length; x++) {
+                                    if (indivDays[x].equals(ObjectHelpers.getTodaySpelledOut())) {
+                                        EmployeeDayOffs checkOne = EmployeeDayOffsDao.getOneByDate(connection, employee.getId(), ObjectHelpers.getSqlDate());
+                                        
+                                        if (checkOne != null) {
+                                            
+                                        } else {
+                                            EmployeeDayOffs dayOff = new EmployeeDayOffs("", 
+                                                employee.getId(), 
+                                                ObjectHelpers.getSqlDate(), 
+                                                null, 
+                                                ObjectHelpers.getCurrentTimestamp(), 
+                                                ObjectHelpers.getCurrentTimestamp());
+                                            EmployeeDayOffsDao.insert(connection, dayOff);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    dayOffLogs.append(IDGenerator.getCurrentTimestamp() + " #| Calisto : Day-off assitant completed.\n");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            dayOffLogs.append(IDGenerator.getCurrentTimestamp() + " #| Calisto : Error flushing dayoffs.\n");
         }
     }
 }
