@@ -34,6 +34,8 @@ public class Employees {
     private String Designation;
     private String BiometricsUserId;
     private String PayrollScheduleId;
+    private String DayOffDates;
+    private String EmploymentStatus;
 
     public Employees() {
     }
@@ -65,6 +67,37 @@ public class Employees {
         this.PayrollScheduleId = PayrollScheduleId;
     }
 
+    public Employees(String id, String FirstName, String MiddleName, String LastName, String Suffix, String Gender, String Birthdate, String StreetCurrent, String BarangayCurrent, String TownCurrent, String ProvinceCurrent, String StreetPermanent, String BarangayPermanent, String TownPermanent, String ProvincePermanent, String ContactNumbers, String EmailAddress, String BloodType, String CivilStatus, String Religion, String Citizenship, String Designation, String BiometricsUserId, String PayrollScheduleId, String DayOffDates, String EmploymentStatus) {
+        this.id = id;
+        this.FirstName = FirstName;
+        this.MiddleName = MiddleName;
+        this.LastName = LastName;
+        this.Suffix = Suffix;
+        this.Gender = Gender;
+        this.Birthdate = Birthdate;
+        this.StreetCurrent = StreetCurrent;
+        this.BarangayCurrent = BarangayCurrent;
+        this.TownCurrent = TownCurrent;
+        this.ProvinceCurrent = ProvinceCurrent;
+        this.StreetPermanent = StreetPermanent;
+        this.BarangayPermanent = BarangayPermanent;
+        this.TownPermanent = TownPermanent;
+        this.ProvincePermanent = ProvincePermanent;
+        this.ContactNumbers = ContactNumbers;
+        this.EmailAddress = EmailAddress;
+        this.BloodType = BloodType;
+        this.CivilStatus = CivilStatus;
+        this.Religion = Religion;
+        this.Citizenship = Citizenship;
+        this.Designation = Designation;
+        this.BiometricsUserId = BiometricsUserId;
+        this.PayrollScheduleId = PayrollScheduleId;
+        this.DayOffDates = DayOffDates;
+        this.EmploymentStatus = EmploymentStatus;
+    }
+
+    
+    
     public String getId() {
         return id;
     }
@@ -255,6 +288,22 @@ public class Employees {
 
     public void setPayrollScheduleId(String PayrollScheduleId) {
         this.PayrollScheduleId = PayrollScheduleId;
+    }
+
+    public String getDayOffDates() {
+        return DayOffDates;
+    }
+
+    public void setDayOffDates(String DayOffDates) {
+        this.DayOffDates = DayOffDates;
+    }
+
+    public String getEmploymentStatus() {
+        return EmploymentStatus;
+    }
+
+    public void setEmploymentStatus(String EmploymentStatus) {
+        this.EmploymentStatus = EmploymentStatus;
     }
     
     

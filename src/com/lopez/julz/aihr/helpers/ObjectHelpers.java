@@ -325,4 +325,14 @@ public class ObjectHelpers {
             return "";
         }
     }
+    
+    public static String getTodaySpelledOut() {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("EEEE");
+            return sdf.format(new Date());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
 }
