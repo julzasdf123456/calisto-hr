@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Calisto">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/dist/Calisto.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

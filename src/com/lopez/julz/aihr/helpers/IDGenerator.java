@@ -81,7 +81,11 @@ public class IDGenerator {
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
-            return sdf.format(sdf.parse(time));
+            if (time != null) {
+                return sdf.format(sdf.parse(time));
+            } else {
+                return "00:00:00";
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
